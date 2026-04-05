@@ -1,6 +1,8 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
 import requests
+import threading
+from flask import Flask
 
 TOKEN = "8714423107:AAFxzv29AGjWaDUIS5iSID-hwTkn2gNQTxM"
 
@@ -69,4 +71,19 @@ app.add_handler(CommandHandler("oficio", oficio))
 app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, mensajes))
 app.add_handler(CallbackQueryHandler(botones))
 
+
+
+app_web = Flask(__name__)
+
+@app_web.route("/")
+def home():
+    return "Bot activo"
+
+def run_web():
+    app_web.run(host="0.0.0.0", port=10000)
+
+# Ejecutar Flask en paralelo
+threading.Thread(target=run_web).start()
+
+# Ejecutar bot
 app.run_polling()
