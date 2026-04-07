@@ -37,7 +37,7 @@ def generar():
             return jsonify({"error": "No se recibieron datos"}), 400
 
         # 📂 Cargar plantilla
-        doc = Document("plantilla.docx")
+        doc = Document("plantilla_2.docx")
 
         # 🔁 Reemplazar datos
         reemplazar(doc, data)
