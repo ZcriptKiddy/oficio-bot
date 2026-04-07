@@ -5,38 +5,45 @@ import threading
 import time
 from flask import Flask
 
-TOKEN = "TU_TOKEN_AQUI"
+TOKEN = "8714423107:AAFxzv29AGjWaDUIS5iSID-hwTkn2gNQTxM"
 
-# 🌐 URL de tu API en Render
-API_URL = "https://oficio-api.onrender.com"
+# 🔄 ==============================
+# CAMBIO DE MODO
+# ==============================
+MODO = "PRODUCTION"   # 🔁 Cambiar a "LOCAL" cuando pruebes en tu PC
+
+if MODO == "LOCAL":
+    API_URL = "http://127.0.0.1:5000"
+else:
+    API_URL = "https://oficio-api.onrender.com"
 
 datos_usuario = {}
 
-# 🔄 FUNCIÓN PARA DESPERTAR LA API
+# 🔄 FUNCIÓN PARA DESPERTAR API
 def despertar_api():
     try:
-        for intento in range(10):  # intenta varias veces
+        for intento in range(10):
             try:
                 r = requests.get(API_URL, timeout=5)
                 if r.status_code == 200:
                     return True
             except:
                 pass
-            time.sleep(2)  # espera antes de reintentar
+            time.sleep(2)
         return False
     except:
         return False
 
 
-# 🚀 Comando /oficio
+# 🚀 Comando inicial
 async def oficio(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     datos_usuario[user_id] = {}
 
-    # ⏳ Mensaje de espera
-    mensaje = await update.message.reply_text("⏳ Preparando sistema, espera unos segundos...")
+    # ⏳ Mensaje inicial
+    mensaje = await update.message.reply_text("⏳ Preparando sistema, espera...")
 
-    # 🔄 Despertar API
+    # 🔄 Wake-up (solo útil en PROD pero no estorba en LOCAL)
     ok = despertar_api()
 
     if not ok:
@@ -46,7 +53,7 @@ async def oficio(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await mensaje.edit_text("✅ Sistema listo.\n\nDame número de carpeta:")
 
 
-# 💬 Manejo de mensajes
+# 💬 Captura de datos
 async def mensajes(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     texto = update.message.text
@@ -80,7 +87,7 @@ async def mensajes(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
 
-# 🔘 Manejo de botones
+# 🔘 Botones
 async def botones(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -90,32 +97,31 @@ async def botones(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = datos_usuario.get(user_id, {})
     data["agencia"] = agencia
 
-    await query.edit_message_text("⏳ Generando documento, espera...")
+    await query.edit_message_text("⏳ Generando documento...")
 
     try:
-        # 📤 Enviar datos a la API
         response = requests.post(
             f"{API_URL}/generar",
             json=data,
-            timeout=90  # más tiempo por si despierta
+            timeout=90
         )
 
         if response.status_code != 200:
             await query.message.reply_text("❌ Error al generar documento.")
             return
 
-        # 📄 Guardar archivo temporal
+        # 📄 Guardar temporal
         with open("resultado.docx", "wb") as f:
             f.write(response.content)
 
-        # 📤 Enviar al usuario
+        # 📤 Enviar
         await query.message.reply_document(open("resultado.docx", "rb"))
 
     except requests.exceptions.Timeout:
-        await query.message.reply_text("⏱️ El servidor tardó demasiado. Intenta de nuevo.")
+        await query.message.reply_text("⏱️ El servidor tardó demasiado.")
 
     except requests.exceptions.ConnectionError:
-        await query.message.reply_text("🌐 Error de conexión con la API.")
+        await query.message.reply_text("🌐 Error de conexión.")
 
     except Exception as e:
         await query.message.reply_text(f"❌ Error inesperado: {str(e)}")
@@ -124,7 +130,7 @@ async def botones(update: Update, context: ContextTypes.DEFAULT_TYPE):
         datos_usuario[user_id] = {}
 
 
-# 🤖 Configuración del bot
+# 🤖 BOT
 app = ApplicationBuilder().token(TOKEN).build()
 
 app.add_handler(CommandHandler("oficio", oficio))
@@ -132,7 +138,7 @@ app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, mensajes))
 app.add_handler(CallbackQueryHandler(botones))
 
 
-# 🌐 Web para mantener activo Render
+# 🌐 Web para Render (mantener vivo)
 app_web = Flask(__name__)
 
 @app_web.route("/")
@@ -142,8 +148,10 @@ def home():
 def run_web():
     app_web.run(host="0.0.0.0", port=10000)
 
-# 🔄 Ejecutar Flask en paralelo
+
+# 🔄 Ejecutar web en paralelo (solo útil en Render)
 threading.Thread(target=run_web).start()
+
 
 # ▶️ Ejecutar bot
 app.run_polling()
